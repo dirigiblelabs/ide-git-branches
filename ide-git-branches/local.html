@@ -24,7 +24,7 @@
   </head>
 
   <body class="dg-vbox">
-    <fd-toolbar>
+    <fd-toolbar ng-hide="loadingBranches">
       <fd-toolbar-spacer></fd-toolbar-spacer>
       <fd-button compact="true" dg-type="transparent" glyph="sap-icon--add" title="Create branch"
         aria-label="Create branch" state="{{ branches.length ? '' : 'disabled' }}" ng-click="createBranch()">
@@ -71,9 +71,11 @@
     <fd-toolbar dg-size="cozy" ng-show="searchVisible">
       <fd-input type="search" placeholder="Search" ng-keyup="search()" ng-model="searchField.text"></fd-input>
     </fd-toolbar>
-    <fd-message-page glyph="sap-icon--hint" ng-hide="branches.length || loadingBranches">
-      <fd-message-page-title>Select a project to get a list of it's branches.</fd-message-page-title>
-    </fd-message-page>
+    <fd-scrollbar class="dg-full-height" ng-hide="branches.length || loadingBranches">
+      <fd-message-page glyph="sap-icon--hint">
+        <fd-message-page-title>Select a project to get a list of it's branches.</fd-message-page-title>
+      </fd-message-page>
+    </fd-scrollbar>
     <fd-busy-indicator-extended class="dg-fill-parent" dg-size="l" ng-show="loadingBranches">
       Loading...
     </fd-busy-indicator-extended>
