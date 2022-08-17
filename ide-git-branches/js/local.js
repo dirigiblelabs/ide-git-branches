@@ -9,9 +9,9 @@
  * SPDX-FileCopyrightText: 2010-2022 SAP SE or an SAP affiliate company and Eclipse Dirigible contributors
  * SPDX-License-Identifier: EPL-2.0
  */
-let remoteBranchesView = angular.module('remoteBranches', ['ideUI', 'ideView', 'ideGit']);
+let localBranchesView = angular.module('localBranches', ['ideUI', 'ideView', 'ideGit']);
 
-remoteBranchesView.controller('RemoteBranchesViewController', [
+localBranchesView.controller('LocalBranchesViewController', [
     '$scope',
     'messageHub',
     'gitApi',
@@ -25,7 +25,7 @@ remoteBranchesView.controller('RemoteBranchesViewController', [
         $scope.searchField = { text: '' };
         $scope.branches = [];
         $scope.activeBranch = {
-            name: 'main',
+            name: '',
         };
         $scope.selectedBranch = {
             index: -1,
@@ -34,10 +34,6 @@ remoteBranchesView.controller('RemoteBranchesViewController', [
             commitAuthor: '',
             commitDate: '',
             commitMessage: '',
-        };
-        $scope.credentials = {
-            username: '',
-            password: '',
         };
 
         $scope.selected = function (index, branch) {
@@ -56,23 +52,8 @@ remoteBranchesView.controller('RemoteBranchesViewController', [
                 [{
                     id: "cbn",
                     type: "input",
-                    label: "Branch name",
+                    label: "Name",
                     value: '',
-                },
-                {
-                    id: "dbui",
-                    type: "input",
-                    label: "Username",
-                    required: true,
-                    value: $scope.credentials.username,
-                },
-                {
-                    id: "dpwi",
-                    type: "input",
-                    inputType: 'password',
-                    label: "Password",
-                    required: true,
-                    value: $scope.credentials.password,
                 }],
                 [{
                     id: 'b1',
@@ -85,61 +66,42 @@ remoteBranchesView.controller('RemoteBranchesViewController', [
                     type: 'transparent',
                     label: 'Cancel',
                 }],
-                'git-branches.create.remote.branch',
+                'git-branches.create.local.branch',
                 'Creating...',
             );
         };
 
         $scope.deleteBranch = function () {
-            messageHub.showDialogAsync(
-                `Delete branch '${$scope.selectedBranch.name}'?`,
-                'This will delete the branch both locally and remotely. This action cannot be undone.',
-                [{
-                    id: 'b1',
-                    type: 'emphasized',
-                    label: 'Delete',
-                },
-                {
-                    id: 'b2',
-                    type: 'transparent',
-                    label: 'Cancel',
-                }],
-            ).then(function (dialogResponse) {
-                if (dialogResponse.data === 'b1') {
-                    messageHub.showFormDialog(
-                        'deleteGitBranchForm',
-                        `Delete branch '${$scope.selectedBranch.name}'`,
-                        [{
-                            id: "dbui",
-                            type: "input",
-                            label: "Username",
-                            required: true,
-                            value: $scope.credentials.username,
-                        },
+            if ($scope.selectedBranch.index >= 0) {
+                messageHub.showDialogAsync(
+                    `Delete branch '${$scope.selectedBranch.name}'`,
+                    'This action cannot be undone.',
+                    [
                         {
-                            id: "dpwi",
-                            type: "input",
-                            inputType: 'password',
-                            label: "Password",
-                            required: true,
-                            value: $scope.credentials.password,
-                        }],
-                        [{
                             id: 'b1',
                             type: 'emphasized',
                             label: 'Delete',
-                            whenValid: true,
                         },
                         {
                             id: 'b2',
                             type: 'transparent',
                             label: 'Cancel',
                         }],
-                        'git-branches.delete.remote.branch',
-                        'Deleting...',
-                    );
-                }
-            });
+                ).then(function (dialogResponse) {
+                    if (dialogResponse.data === 'b1') {
+                        gitApi.deleteBranch(
+                            $scope.selectedWorkspace,
+                            $scope.selectedRepository,
+                            $scope.selectedBranch.name,
+                        ).then(function (response) {
+                            if (response.status === 200) {
+                                messageHub.setStatusMessage(`Deleted branch '${$scope.selectedBranch.name}'`);
+                                $scope.loadBranches();
+                            } else messageHub.showAlertError('Could not delete branch', response.message);
+                        });
+                    }
+                });
+            }
         };
 
         $scope.checkout = function (index, branch) {
@@ -156,7 +118,7 @@ remoteBranchesView.controller('RemoteBranchesViewController', [
                         'git.repository.branch.checkout',
                         {
                             branch: $scope.activeBranch.name,
-                            type: 'remote',
+                            type: 'local',
                         }
                     );
                     messageHub.setStatusMessage(`Switched to branch '${$scope.activeBranch.name}'`);
@@ -181,15 +143,30 @@ remoteBranchesView.controller('RemoteBranchesViewController', [
             }
         };
 
-        $scope.loadBranches = function () {
+        $scope.loadBranches = function (initRemote = true) {
             $scope.selectedBranch.index = -1;
             $scope.selectedBranch.name = '';
             $scope.loadingBranches = true;
-            gitApi.branches($scope.selectedWorkspace, $scope.selectedRepository, false).then(
+            gitApi.branches($scope.selectedWorkspace, $scope.selectedRepository, true).then(
                 function (response) {
                     if (response.status === 200) {
-                        $scope.branches = response.data.remote;
-                    } else messageHub.showAlertError('Could not get remote branches', response.message);
+                        $scope.branches = response.data.local;
+                        for (let i = 0; i < $scope.branches.length; i++) {
+                            if ($scope.branches[i].current) {
+                                $scope.activeBranch.name = $scope.branches[i].name;
+                                if (initRemote) messageHub.postMessage(
+                                    'git.repository.branch.current',
+                                    {
+                                        workspace: $scope.selectedWorkspace.name,
+                                        project: $scope.selectedRepository,
+                                        branch: $scope.activeBranch.name,
+                                        type: 'local',
+                                    }
+                                );
+                                break;
+                            }
+                        }
+                    } else messageHub.showAlertError('Could not get local branches', response.message);
                     $scope.loadingBranches = false;
                 }
             );
@@ -204,27 +181,31 @@ remoteBranchesView.controller('RemoteBranchesViewController', [
         };
 
         messageHub.onDidReceiveMessage(
-            'git-branches.create.remote.branch',
+            'git-branches.create.local.branch',
             function (msg) {
                 $scope.$apply(function () {
                     if (msg.data.buttonId === "b1") {
-                        $scope.credentials.username = msg.data.formData[1].value;
-                        $scope.credentials.password = msg.data.formData[2].value;
                         gitApi.createBranch(
                             $scope.selectedWorkspace,
                             $scope.selectedRepository,
-                            msg.data.formData[0].value,
-                            false,
-                            $scope.credentials.username,
-                            $scope.credentials.password,
+                            msg.data.formData[0].value
                         ).then(function (response) {
                             if (response.status === 200) {
                                 $scope.checkout(-1, msg.data.formData[0].value);
-                                messageHub.triggerEvent('git-branches.reload.local', true);
                             } else messageHub.showAlertError('Could not create branch', response.message);
                             messageHub.hideFormDialog('createGitBranchForm');
                         });
                     } else messageHub.hideFormDialog('createGitBranchForm');
+                });
+            },
+            true
+        );
+
+        messageHub.onDidReceiveMessage(
+            'git-branches.reload.local',
+            function () {
+                $scope.$apply(function () {
+                    $scope.loadBranches(false);
                 });
             },
             true
@@ -242,58 +223,14 @@ remoteBranchesView.controller('RemoteBranchesViewController', [
                         $scope.clearList();
                     }
                 });
-            }
-        );
-
-        messageHub.onDidReceiveMessage(
-            'git-branches.delete.remote.branch',
-            function (msg) {
-                $scope.$apply(function () {
-                    if (msg.data.buttonId === "b1") {
-                        $scope.credentials.username = msg.data.formData[0].value;
-                        $scope.credentials.password = msg.data.formData[1].value;
-                        gitApi.deleteBranch(
-                            $scope.selectedWorkspace,
-                            $scope.selectedRepository,
-                            $scope.selectedBranch.name,
-                            false,
-                            $scope.credentials.username,
-                            $scope.credentials.password,
-                        ).then(function (response) {
-                            if (response.status === 200) {
-                                messageHub.setStatusMessage(`Deleted branch '${$scope.selectedBranch.name}'`);
-                                messageHub.postMessage(
-                                    'git.repository.branch.delete',
-                                    {
-                                        branch: $scope.selectedBranch.name,
-                                    }
-                                );
-                                $scope.branches.splice($scope.selectedBranch.index, 1);
-                                $scope.selectedBranch.index = -1;
-                                $scope.selectedBranch.name = '';
-                            } else messageHub.showAlertError('Could not delete branch', response.message);
-                            messageHub.hideFormDialog('deleteGitBranchForm');
-                        });
-                    } else messageHub.hideFormDialog('deleteGitBranchForm');
-                });
             },
             true
-        );
-
-        // Used for matching with the current local branch
-        messageHub.onDidReceiveMessage(
-            'git.repository.branch.current',
-            function (msg) {
-                if (msg.data.type === 'local') {
-                    $scope.activeBranch.name = msg.data.branch;
-                }
-            }
         );
 
         messageHub.onDidReceiveMessage(
             'git.repository.branch.checkout',
             function (msg) {
-                if (msg.data.type === 'local') {
+                if (msg.data.type === 'remote') {
                     if ($scope.activeBranch.name !== msg.data.branch) {
                         $scope.$apply(function () {
                             $scope.activeBranch.name = '';
@@ -309,6 +246,24 @@ remoteBranchesView.controller('RemoteBranchesViewController', [
                         if (!$scope.activeBranch.name) $scope.loadBranches();
                     }
                 }
-            }
+            },
+            true
+        );
+
+        messageHub.onDidReceiveMessage(
+            'git.repository.branch.delete',
+            function (msg) {
+                $scope.$apply(function () {
+                    for (let i = 0; i < $scope.branches.length; i++) {
+                        if ($scope.branches[i].name === msg.data.branch) {
+                            $scope.branches.splice(i, 1);
+                            $scope.selectedBranch.index = -1;
+                            $scope.selectedBranch.name = '';
+                            break;
+                        }
+                    }
+                });
+            },
+            true
         );
     }]);
