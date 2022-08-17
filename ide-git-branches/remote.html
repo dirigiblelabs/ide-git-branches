@@ -77,7 +77,7 @@
     <fd-busy-indicator-extended class="dg-fill-parent" dg-size="l" ng-show="loadingBranches">
       Loading...
     </fd-busy-indicator-extended>
-    <fd-scrollbar class="dg-full-height" ng-show="branches.length">
+    <fd-scrollbar class="dg-full-height" ng-show="branches.length && !loadingBranches">
       <fd-list list-type="selection" compact="true">
         <fd-list-item ng-repeat="branch in branches track by $index" dg-selected="selectedBranch.index === $index"
           ng-click="selected($index, branch)" ng-hide="branch.hidden">
