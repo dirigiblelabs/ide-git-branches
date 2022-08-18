@@ -40,14 +40,14 @@
         ng-click="toggleSearch()">
       </fd-button>
       <fd-toolbar-separator></fd-toolbar-separator>
-      <fd-popover compact="true" dg-align="right">
+      <fd-popover compact="true" dg-align="right" close-innerclick="false">
         <fd-popover-control>
           <fd-button fd-list-button compact="true" dg-type="transparent" glyph="sap-icon--information"
             aria-label="branch information" state="{{ selectedBranch.index !== -1 ? '' : 'disabled' }}">
           </fd-button>
         </fd-popover-control>
         <fd-popover-body dg-align="right" style="min-width:200px">
-          <fd-form-group class="fd-margin-begin-end--sm dg-popover-text--multiline">
+          <fd-form-group class="fd-margin-begin-end--sm dg-popover-text--multiline" tabindex="0">
             <fd-form-item class="fd-margin-top-bottom--tiny">
               <fd-form-label dg-colon="true">Short ID</fd-form-label>
               <p class="fd-text fd-text--hyphenation">{{selectedBranch.commitShortId}}</p>
